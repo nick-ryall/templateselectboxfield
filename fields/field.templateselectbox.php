@@ -4,21 +4,23 @@
 
 	if(!defined('__IN_SYMPHONY__')) die('<h2>Symphony Error</h2><p>You cannot directly access this file</p>');
 
-	Class FieldUploadselectbox extends Field {
+	Class FieldTemplateselectbox extends Field {
 
 		function __construct(&$parent){
 			parent::__construct($parent);
-			$this->_name = 'Upload Select Box';
+			$this->_name = 'Template Select Box';
 			$this->set('show_column', 'no');
+			$this->_driver = $this->_engine->ExtensionManager->create('templateselectboxfield');
 		}
 
 		function canToggle(){
-			return ($this->get('allow_multiple_selection') == 'yes' ? false : true);
+			return false;
 		}
 
 		function allowDatasourceParamOutput(){
 			## Grouping follows the same rule as toggling.
-			return $this->canToggle();
+			//return $this->canToggle();
+			return true;
 		}
 
 		function canFilter(){
@@ -52,27 +54,38 @@
 
 			$path = DOCROOT . $this->get('destination');
 
-			$item->setAttributeArray(array(
-			 	'path' => str_replace(WORKSPACE,'', $path)
-			));
-
 			foreach($data['file'] as $index => $file) {
 				$item->appendChild(new XMLElement(
-					'item', General::sanitize($file), array(
-						'size' => General::formatFilesize(filesize($path . '/' . $file)),
-					)
-				));
+					'path', $path . '/' . General::sanitize($file)));
 			}
 
-			$wrapper->appendChild($item);
+			$wrapper->appendChild($item);		
+			
 		}
+		
+		public function buildSummaryBlock($errors = null){
+			$span = new XMLElement('span');
 
+			$label = Widget::Input('fields['.$this->get('sortorder').'][label]', 'Page Template', 'hidden');
+			if(isset($errors['label'])) $span->appendChild(Widget::wrapFormElementWithError($label, $errors['label']));
+			else $span->appendChild($label);
+	
+			$span->appendChild($this->buildLocationSelect($this->get('location'), 'fields['.$this->get('sortorder').'][location]'));
+	
+			return $span;
+		}
+					
 		function displaySettingsPanel(&$wrapper, $errors=NULL){
 
-			Field::displaySettingsPanel($wrapper, $errors);
+			$wrapper->appendChild(new XMLElement('h4', $this->name()));
+			$wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][type]', $this->handle(), 'hidden'));
+			if($this->get('id')) $wrapper->appendChild(Widget::Input('fields['.$this->get('sortorder').'][id]', $this->get('id'), 'hidden'));
 
-			$div = new XMLElement('div', NULL, array('class' => 'group'));
-
+			
+			$group = new XMLElement('div');
+			$group->setAttribute('class', 'group');
+			
+			
 			## Destination Folder
 			$ignore = array(
 				'/workspace/events',
@@ -93,22 +106,18 @@
 					if(!in_array($d, $ignore)) $options[] = array($d, ($this->get('destination') == $d), $d);
 				}
 			}
-
+			
 			$label->appendChild(Widget::Select('fields['.$this->get('sortorder').'][destination]', $options));
 
-			if(isset($errors['destination'])) $wrapper->appendChild(Widget::wrapFormElementWithError($label, $errors['destination']));
-			else $wrapper->appendChild($label);
-
-			$this->appendRequiredCheckbox($wrapper);
-
-			## Allow selection of multiple items
-			$label = Widget::Label();
-			$input = Widget::Input('fields['.$this->get('sortorder').'][allow_multiple_selection]', 'yes', 'checkbox');
-			if($this->get('allow_multiple_selection') == 'yes') $input->setAttribute('checked', 'checked');
-			$label->setValue(__('%s Allow selection of multiple options', array($input->generate())));
-			$wrapper->appendChild($label);
+			if(isset($errors['destination'])) $group->appendChild(Widget::wrapFormElementWithError($label, $errors['destination']));
+			else $group->appendChild($label);
+			
+			$group->appendChild($this->buildSummaryBlock($errors));
+			
+			$wrapper->appendChild($group);
 
 			$this->appendShowColumnCheckbox($wrapper);
+			
 
 		}
 
@@ -120,8 +129,19 @@
 			
 			if (is_null($states['filelist']) || empty($states['filelist'])) $states['filelist'] = array();
 			
+			$options[] = array('', '', 'Page Template');
+			
 			foreach($states['filelist'] as $handle => $v){
-				$options[] = array(General::sanitize($v), in_array($v, $data['file']), $v);
+				$path_info = pathinfo($v);
+				if($path_info['extension'] == 'xsl') {
+					$template_name = $this->_driver->readTemplateName(DOCROOT . $this->get('destination') . '/' . $v);
+					if($template_name) {
+						$options[] = array(General::sanitize($v), in_array($v, $data['file']), $template_name);
+					} else {
+						$options[] = array(General::sanitize($v), in_array($v, $data['file']), $v);
+					}
+					
+				}
 			}
 
 			$fieldname = 'fields'.$fieldnamePrefix.'['.$this->get('element_name').']'.$fieldnamePostfix;
@@ -230,7 +250,6 @@
 
 			$fields['field_id'] = $id;
 			$fields['destination'] = $this->get('destination');
-			$fields['allow_multiple_selection'] = ($this->get('allow_multiple_selection') ? $this->get('allow_multiple_selection') : 'no');
 
 			$this->_engine->Database->query("DELETE FROM `tbl_fields_".$this->handle()."` WHERE `field_id` = '$id' LIMIT 1");
 			return $this->_engine->Database->insert($fields, 'tbl_fields_' . $this->handle());
@@ -253,6 +272,7 @@
 
 			return $result;
 		}
+	
 
 		function createTable(){
 
