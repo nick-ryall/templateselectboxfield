@@ -18,7 +18,7 @@
 2. Create your XSLT files and place them in the new folder. You can optionally give your templates a user-friendly name by adding a comment as follows:
 
 	<code><!--<br />
-		&nbsp;Template: Template Name<br />
+			Template: Template Name<br />
 	--></code>
 
 3. Adding this field to a section and select your new template folder.
