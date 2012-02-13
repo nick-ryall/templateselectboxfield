@@ -15,7 +15,7 @@
 
 
 1. Create a new folder within your workspace for your custom templates.
-2. Create your XSLT files and place them in the new folder. You can optionally give your templates a user-friendly name by adding a comment as follows:
+2. Create your XSLT files and place them in the new folder. You can optionally give your templates a user-friendly name by adding a comment to the top of your file as follows:
 
 	<code><!--<br />
 		     Template: Template Name<br />
